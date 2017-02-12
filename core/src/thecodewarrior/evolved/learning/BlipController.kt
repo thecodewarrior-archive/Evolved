@@ -1,19 +1,15 @@
 package thecodewarrior.evolved.learning
 
-import thecodewarrior.evolved.EvolveWorld
-import thecodewarrior.evolved.learning.gene.BlipGenes
-import thecodewarrior.evolved.learning.gene.Genome
-import thecodewarrior.evolved.learning.network.Action
-import thecodewarrior.evolved.learning.network.Brain
-import thecodewarrior.evolved.learning.network.BrainData
-import thecodewarrior.evolved.learning.network.Sense
+import thecodewarrior.evolved.clamp
+import thecodewarrior.evolved.gcm
+import thecodewarrior.evolved.learning.genetics.BlipGenome
 
 /**
  * Created by TheCodeWarrior
  */
-class BlipController(val blip: EntityBlip, val genome: Genome) {
-    var thrusterPower = 5f
-    var torquePower = 3f
+class BlipController(val blip: EntityBlip, val genome: BlipGenome) {
+    val thrusterPower = 0.5f
+    val torquePower = 0.2f
 
     var forward = 0f
         private set
@@ -21,60 +17,114 @@ class BlipController(val blip: EntityBlip, val genome: Genome) {
     var torque = 0f
         private set
 
-    var brainDeadCountdown = 100
-
-    val brain = Brain(genome[BlipGenes.BRAIN] ?: BrainData.random(), { blip.food -= it })
+    var breedWillingness = 0.0
+    var breedCooldown = 500
+    var vision = listOf<DeepColor>()
+    val realVision = mutableMapOf<DeepChannel, DoubleArray>()
 
     init {
-
+        if(genome.brain.nets.size == 0) // brain dead
+            blip.kill()
     }
 
+    fun raytrace(): List<DeepColor> {
+        val list = mutableListOf<DeepColor>()
+
+        val interval = 6f
+        var angle = (genome.mainData.fov*interval).toInt() / interval
+
+        var a = 0f
+        while(a <= angle) {
+
+            var end = blip.normal().rotate(a-angle/2).scl(500f)
+            var color = DeepColor()
+            var minDist = Float.POSITIVE_INFINITY
+            blip.physWorld.rayCast(cast@{ f, point, normal, d ->
+                if(f.body.userData != this.blip && f.body.userData is Visible) {
+                    if(d < minDist) {
+                        color = (f.body.userData as Visible).color
+                        minDist = d
+                    }
+                }
+                return@cast -1f
+            }, blip.pos, end)
+
+            list.add(color)
+
+            a += interval
+        }
+
+        return list
+    }
+
+    fun channel(list: List<DeepColor>, channel: DeepChannel, width: Int): DoubleArray {
+
+        if(list.size == 0)
+            return doubleArrayOf()
+        val gcm = gcm(list.size, width)
+
+        val want = width/gcm
+        val have = list.size/gcm
+
+        return downsample(upsample(list.map { it[channel] }.toDoubleArray(), want), have)
+    }
+
+    fun upsample(array: DoubleArray, factor: Int): DoubleArray {
+        if(factor == 1)
+            return array
+        val newArr = DoubleArray(array.size*factor)
+        var i = 0
+        array.forEach { value ->
+            for(j in 1..factor) {
+                newArr[i++] = value
+            }
+        }
+        return newArr
+    }
+
+    fun downsample(array: DoubleArray, factor: Int): DoubleArray {
+        if(factor == 1)
+            return array
+        val newArr = DoubleArray(array.size/factor)
+        var i = 0
+        var loop = 0
+        var running = 0.0
+        array.forEach { value ->
+            if(loop == factor) {
+                newArr[i++] = running/factor
+                running = 0.0
+                loop = 0
+            }
+            running += value
+            loop++
+        }
+
+        return newArr
+    }
+
+
     fun tick() {
-        brain.tick()
+        breedCooldown--
 
-        forward = 0f
-        torque = 0f
+        vision = raytrace().reversed() // I'm lazy and the array is going right -> left, it should be left -> right 'cause english writing and stuff
+        realVision.clear()
 
-        val normal = blip.normal()
-        val mouseNormal = EvolveWorld.mainWorld.entities.minBy {
-            (it as? EntityFood)?.pos?.cpy()?.sub(blip.pos)?.len2() ?: 1000f
-        }?.let {
-           if(it is EntityFood)
-               it.pos.cpy().sub(blip.pos).nor()
-           else
-               null
+        DeepChannel.values().forEach { channel ->
+            val arr = channel(vision, channel, genome.mainData.visionResolution)
+            realVision[channel] = arr
+            genome.brain[EnumSense.byChannel[channel]!!] = arr
         }
 
-        val sound = IntArray(Sense.SOUND.indexRange.last - Sense.SOUND.indexRange.first + 1)
+        genome.brain[EnumSense.ENERGY] = doubleArrayOf(blip.food / blip.maxFood.toDouble())
 
-        if(mouseNormal != null) {
-            val cross = normal.crs(mouseNormal)
-            val cos = normal.dot(mouseNormal)
+        genome.brain.update()
 
-            if (cross < 0)
-                sound[0] = ((1-cos)*100).toInt()
-            if (cross > 0)
-                sound[2] = ((1-cos)*100).toInt()
-        }
+        forward = genome.brain[EnumAction.FORWARD].toFloat() * thrusterPower
+        torque = (genome.brain[EnumAction.LEFT] - genome.brain[EnumAction.RIGHT]).toFloat() * torquePower
 
-        brain.fire(Sense.SOUND, sound)
+        breedWillingness = genome.brain[EnumAction.BREED].clamp(-1.0, 1.0)
 
-        // at least one neuron firing per second or it will experience brain death
-        if(brain.outputs.none { it.value.get() })
-            brainDeadCountdown--
-        else
-            brainDeadCountdown += 60
-
-        brainDeadCountdown = Math.min(brainDeadCountdown, 100)
-
-        if(!brain.get(Action.STOP))
-            forward += thrusterPower
-        if(brain.get(Action.TURN_LEFT))
-            torque -= torquePower
-        if(brain.get(Action.TURN_RIGHT))
-            torque += torquePower
-
-//        if(brainDeadCountdown <= 0)
-//            blip.kill()
+        if(blip.age > genome.mainData.maxAge)
+            blip.kill()
     }
 }

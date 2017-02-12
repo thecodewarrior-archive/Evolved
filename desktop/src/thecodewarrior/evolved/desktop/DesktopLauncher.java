@@ -11,6 +11,7 @@ public class DesktopLauncher {
 		LwjglApplicationConfiguration config = new LwjglApplicationConfiguration();
 		config.width = WIDTH;
 		config.height = HEIGHT;
+		config.samples = 2;
 		new LwjglApplication(new EvolvedGameAdapter(WIDTH, HEIGHT), config);
 	}
 }

@@ -16,8 +16,9 @@ class EntityFood(world: World, pos: Vector2) : Entity(world, pos) {
         val maxFood = 10000
     }
 
+    override val color: DeepColor = DeepColor().with(DeepChannel.FOOD, 1.0)
     val r: Float
-        get() = food/(maxFood*2) + 0.1f
+        get() = 0.5f //food/(maxFood) + 0.1f
 
     var rawFood: Int = maxFood
 
@@ -52,7 +53,7 @@ class EntityFood(world: World, pos: Vector2) : Entity(world, pos) {
     }
 
     override fun renderShape(render: ShapeRenderer) {
-        render.setColor(0f, 0f, 0.74f, 1f)
+        render.setColor(0f, 0f, 0.74f, rawFood/maxFood.toFloat())
         render.triangle(
                 r, r,
                 -r, -r,
@@ -78,5 +79,5 @@ class EntityFood(world: World, pos: Vector2) : Entity(world, pos) {
         this.kill()
     }
 
-    override fun onContact(entity: Entity) {}
+    override fun entityNear(entity: Entity) {}
 }

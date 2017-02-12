@@ -25,6 +25,7 @@ class EvolvedGame(val WIDTH: Int, val HEIGHT: Int) : InputProcessor {
     internal val world = EvolveWorld(this)
     internal val debug = Box2DDebugRenderer()
     internal val camera = OrthographicCamera()
+    internal val HUDcamera = OrthographicCamera()
 
     internal var spriteBatch = SpriteBatch()
     internal var shapeRenderer = ShapeRenderer()
@@ -43,6 +44,8 @@ class EvolvedGame(val WIDTH: Int, val HEIGHT: Int) : InputProcessor {
         curZoom = zoom
         camera.setToOrtho(false, 1f/zoom * Gdx.graphics.width / ppm, 1f/zoom * Gdx.graphics.height / ppm)
         camera.translate(vec(1f/zoom * -Gdx.graphics.width/(2f*ppm), 1f/zoom * -Gdx.graphics.height/(2f*ppm)))
+
+        HUDcamera.setToOrtho(false, Gdx.graphics.width.toFloat(), Gdx.graphics.height.toFloat())
     }
 
     fun render() {
@@ -52,9 +55,11 @@ class EvolvedGame(val WIDTH: Int, val HEIGHT: Int) : InputProcessor {
         val x1 = Gdx.input.x
         val y1 = Gdx.input.y
         val input = Vector3(x1.toFloat(), y1.toFloat(), 0f)
+        val hudInput = Vector3(x1.toFloat(), y1.toFloat(), 0f)
         camera.unproject(input)
+        HUDcamera.unproject(hudInput)
 
-        world.updateMouse(input.x, input.y)
+        world.updateMouse(input.x, input.y, hudInput.x, hudInput.y)
 
 
         spriteBatch.projectionMatrix = camera.combined
@@ -64,7 +69,7 @@ class EvolvedGame(val WIDTH: Int, val HEIGHT: Int) : InputProcessor {
             tickTime = 1/tps
             world.tick()
         }
-        Gdx.gl.glClearColor(1f, 0f, 0f, 1f)
+        Gdx.gl.glClearColor(0.5f, 0.5f, 0.5f, 1f)
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT)
 
         shapeRenderer.projectionMatrix = camera.combined
@@ -79,7 +84,21 @@ class EvolvedGame(val WIDTH: Int, val HEIGHT: Int) : InputProcessor {
 
         world.draw(camera.combined)
 
-        debug.render(world.physWorld, camera.combined)
+//        debug.render(world.physWorld, camera.combined)
+
+        // hud
+
+        shapeRenderer.projectionMatrix = HUDcamera.combined
+        shapeRenderer.begin(ShapeRenderer.ShapeType.Filled)
+        world.drawHUD(shapeRenderer)
+        shapeRenderer.end()
+
+        spriteBatch.projectionMatrix = HUDcamera.combined
+        spriteBatch.begin()
+        world.drawHUD(spriteBatch)
+        spriteBatch.end()
+
+        world.draw(HUDcamera.combined)
     }
 
     fun dispose() {

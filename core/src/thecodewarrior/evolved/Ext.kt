@@ -95,3 +95,111 @@ fun Array<Double>.pick(rand: Random = ThreadLocalRandom.current()): Double? {
         return null
     return this[rand.nextInt(this.size)]
 }
+
+fun IntRange.pick(rand: Random = ThreadLocalRandom.current()): Int {
+    return rand.nextInt(this.endInclusive - this.start) + start
+}
+
+fun IntRange.pick(count: Int, rand: Random = ThreadLocalRandom.current()): List<Int> {
+    return this.toList().pick(count, rand)
+}
+
+fun <T> List<T>.pickIndices(count: Int, rand: Random = ThreadLocalRandom.current()): List<Int> {
+    if(this.isEmpty())
+        return listOf()
+    return this.indices.toList().shuffle().subList(0, count)
+}
+
+inline fun <reified T> Array<T>.pickIndices(count: Int, rand: Random = ThreadLocalRandom.current()): Array<Int> {
+    if(this.isEmpty())
+        return arrayOf()
+    return this.indices.toList().shuffle().subList(0, count).toTypedArray()
+}
+
+fun <T> List<T>.pick(count: Int, rand: Random = ThreadLocalRandom.current()): List<T> {
+    if(this.isEmpty())
+        return listOf()
+    return this.pickIndices(count, rand).map { this[it] }
+}
+
+inline fun <reified T> Array<T>.pick(count: Int, rand: Random = ThreadLocalRandom.current()): Array<T> {
+    if(this.isEmpty())
+        return arrayOf()
+    return this.pickIndices(count, rand).map { this[it] }.toTypedArray()
+}
+
+
+fun <T> Collection<T>.shuffle(): List<T> {
+    val list = ArrayList(this)
+    Collections.shuffle(list)
+    return list
+}
+
+inline fun <reified T> Array<T>.repeat(n: Int): Array<T> {
+    if(this.isEmpty())
+        return this
+    if(n < 0)
+        throw IllegalArgumentException("n must be greater than or equal to zero")
+    return Array(this.size*n) { i -> this[i%this.size] }
+}
+
+fun Byte.clamp(min: Byte, max: Byte): Byte {
+    if(this < min)
+        return min
+    if(this > max)
+        return max
+    return this
+}
+fun Short.clamp(min: Short, max: Short): Short {
+    if(this < min)
+        return min
+    if(this > max)
+        return max
+    return this
+}
+fun Int.clamp(min: Int, max: Int): Int {
+    if(this < min)
+        return min
+    if(this > max)
+        return max
+    return this
+}
+fun Long.clamp(min: Long, max: Long): Long {
+    if(this < min)
+        return min
+    if(this > max)
+        return max
+    return this
+}
+fun Float.clamp(min: Float, max: Float): Float {
+    if(this < min)
+        return min
+    if(this > max)
+        return max
+    return this
+}
+fun Double.clamp(min: Double, max: Double): Double {
+    if(this < min)
+        return min
+    if(this > max)
+        return max
+    return this
+}
+
+fun Float.floor() = this.toInt()
+fun Double.floor() = this.toInt()
+
+fun Float.ceil() = Math.ceil(this.toDouble()).toInt()
+fun Double.ceil() = Math.ceil(this).toInt()
+
+fun gcm(a: Int, b: Int): Int {
+    return if (b == 0) a else gcm(b, a % b) // Not bad for one line of code :)
+}
+
+inline fun Int.times(f: (Int) -> Unit) {
+    for(i in 0..this-1) {
+        f(i)
+    }
+}
+
+
